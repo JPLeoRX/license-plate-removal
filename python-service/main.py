@@ -18,73 +18,87 @@ def toPilImage(cvImage) -> Image:
 def toGrayScale(cvImage):
     return cv2.cvtColor(cvImage,cv2.COLOR_BGR2GRAY)
 
+def toBlurWithBilateralFilter(cvImage):
+    return cv2.bilateralFilter(cvImage, 11, 17, 17)
+
+def toBlurWithGaussian(cvImage, size: int):
+    return cv2.GaussianBlur(cvImage, (size, size), 0)
+
+def findRectangleContours(contours):
+    rectangleContours = []
+    for contour in contours:
+        peri = cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+        if len(approx) == 4:
+            rectangleContours.append(contour)
+    return rectangleContours
+
+def findCenterOfContour(contour) -> (int, int):
+    moments = cv2.moments(contour)
+    centerPointX = int(moments["m10"] / moments["m00"])
+    centerPointY = int(moments["m01"] / moments["m00"])
+    return (centerPointX, centerPointY)
+
+def resizeContour(contour, resizeRatio: float):
+    centerPointX, centerPointY = findCenterOfContour(contour)
+    contourResizedPoints = []
+    for i in range(0, len(contour)):
+        x = contour[i][0][0]
+        y = contour[i][0][1]
+
+        x1 = x - centerPointX
+        y1 = y - centerPointY
+
+        x2 = x1 * resizeRatio
+        y2 = y1 * resizeRatio
+
+        x3 = x2 + centerPointX
+        y3 = y2 + centerPointY
+
+        resizedPoint = [x3, y3]
+        contourResizedPoints.append(resizedPoint)
+    return numpy.array(contourResizedPoints, dtype=numpy.int32)
+
+def getBackgroundColorOfContour(image, contour):
+    x,y,w,h = cv2.boundingRect(contour)
+    cropped = image[y:y+h, x:x+w]
+    croppedBlur = toBlurWithGaussian(cropped, 25)
+    color = BackgroundColorDetector(croppedBlur).detect()
+    color = [int(c) for c in color]
+    colorReversed = (color[2], color[1], color[0])
+    return colorReversed
 
 
-
-imagePath = '/Users/leo/tekleo/license-plate-recognition/sample-images/1.jpg'
+imagePath = '/Users/leo/tekleo/license-plate-recognition/sample-images/5.jpg'
 imagePil = openImage(imagePath)
-print('width=' + str(imagePil.width) + ', height=' + str(imagePil.height))
-
 image = toCvImage(imagePil)
 gray = toGrayScale(image)
-blur = cv2.bilateralFilter(gray, 11, 17, 17)
+blur = toBlurWithBilateralFilter(gray)
+#cv2.imshow('blur 1', blur)
+blur = toBlurWithGaussian(blur, 5)
+#cv2.imshow('blur 2', blur)
 edged = cv2.Canny(blur, 170, 200)
-contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#cv2.imshow('edged', edged)
+contours, hierarchy = cv2.findContours(edged, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 contours = sorted(contours, key = cv2.contourArea, reverse = True)[:30]
+#t1 = cv2.drawContours(image.copy(), contours, -1, (255, 0, 0), 2)
+#cv2.imshow('t1', t1)
 
-plateContour = None
-for contour in contours:
-    peri = cv2.arcLength(contour, True)
-    approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
-    if len(approx) == 4:
-        screenCnt = approx
-        plateContour = contour
-        break
-
-plateMoments = cv2.moments(plateContour)
-plateCenterPointX = int(plateMoments["m10"] / plateMoments["m00"])
-plateCenterPointY = int(plateMoments["m01"] / plateMoments["m00"])
-plateCenterPoint = (plateCenterPointX, plateCenterPointY)
-print('plateMoments=' + str(plateMoments) + ', plateCenterPoint=' + str(plateCenterPoint))
-
-#imageWithPlateContour = cv2.drawContours(image.copy(), [plateContour], -1, (0, 255, 0), -1)
-
-plateContourResizedPoints = []
-resizeRatio = 0.95
-for i in range(0, len(plateContour)):
-    x = plateContour[i][0][0]
-    y = plateContour[i][0][1]
-
-    x1 = x - plateCenterPointX
-    y1 = y - plateCenterPointY
-
-    x2 = x1 * resizeRatio
-    y2 = y1 * resizeRatio
-
-    x3 = x2 + plateCenterPointX
-    y3 = y2 + plateCenterPointY
-
-    resizedPoint = [x3, y3]
-    plateContourResizedPoints.append(resizedPoint)
-plateContourResized = numpy.array(plateContourResizedPoints, dtype=numpy.int32)
-
-#imageWithPlateContour = cv2.drawContours(image.copy(), [plateContourResized], -1, (204, 184, 168), -1)
-#imageWithPlateContour = cv2.circle(imageWithPlateContour, plateCenterPoint, 7, (255, 0, 0), -1)
-
-#cv2.imshow('imageWithPlateContour', imageWithPlateContour)
+rectangleContours = findRectangleContours(contours)
+#t2 = cv2.drawContours(image.copy(), rectangleContours, -1, (255, 0, 0), 2)
+#cv2.imshow('t2', t2)
 #cv2.waitKey()
 
-x,y,w,h = cv2.boundingRect(plateContourResized)
-cropped = image[y:y+h, x:x+w]
-croppedBlur = cv2.GaussianBlur(cropped, (9, 9), 0)
-color = BackgroundColorDetector(croppedBlur).detect()
-color = [int(c) for c in color]
-colorReversed = (color[2], color[1], color[0])
-print(colorReversed)
-
-result = cv2.drawContours(image.copy(), [plateContourResized], -1, colorReversed, -1)
+# contours = sorted(contours, key = cv2.contourArea, reverse = True)[:30]
+# rectangleContours = findRectangleContours(contours)
+plateContour = rectangleContours[0]
+plateContourResized = resizeContour(plateContour, 0.97)
+plateBackgroundColor = getBackgroundColorOfContour(image, plateContourResized)
+result = cv2.drawContours(image.copy(), [plateContourResized], -1, plateBackgroundColor, -1)
 cv2.imshow('original', image)
 cv2.imshow('result', result)
 cv2.waitKey()
 
 #print(color)
+
+#cv2.waitKey()
