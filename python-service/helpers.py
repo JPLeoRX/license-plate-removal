@@ -5,6 +5,7 @@ from PIL.Image import Image
 import cv2
 import numpy
 
+# This class contains all helper functions that should be reused
 class Helpers():
     def openImagePil(self, imagePath: str) -> Image:
         return imageMain.open(imagePath)
@@ -27,11 +28,13 @@ class Helpers():
     def cvToCannyEdge(self, cvImage):
         return cv2.Canny(cvImage, 170, 200)
 
+    # Extracts all contours from the image, and resorts them by area (from largest to smallest)
     def cvExtractContours(self, cvImage):
         contours, hierarchy = cv2.findContours(cvImage, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         contours = sorted(contours, key = cv2.contourArea, reverse = True)
         return contours
 
+    # Find contours that look like rectangles
     def cvFilterRectangleContours(self, contours) -> List:
         rectangleContours = []
         for contour in contours:
@@ -42,11 +45,13 @@ class Helpers():
                 rectangleContours.append(contour)
         return rectangleContours
 
+    # Crops an image around a given contour (returns the area inside this contour)
     def cvCropByContour(self, cvImage, contour):
         newImage = cvImage.copy()
         x,y,w,h = cv2.boundingRect(contour)
         return newImage[y:y+h, x:x+w]
 
+    # Counts all unique BGR colors, and return the most occurring one
     def cvFindMostOccurringColor(self, cvImage) -> (int, int, int):
         width, height, channels = cvImage.shape
         colorCount = {}
@@ -68,12 +73,14 @@ class Helpers():
 
         return maxBGR
 
+    # Finds a rough approximation of center point for a given contour
     def cvFindCenterPointOfContour(self, contour) -> (int, int):
         moments = cv2.moments(contour)
         centerPointX = int(moments["m10"] / moments["m00"])
         centerPointY = int(moments["m01"] / moments["m00"])
         return (centerPointX, centerPointY)
 
+    # Given an existing contour resize it to a given ratio
     def cvResizeContour(self, contour, resizeRatio: float):
         centerPointX, centerPointY = self.cvFindCenterPointOfContour(contour)
         contourResizedPoints = []
