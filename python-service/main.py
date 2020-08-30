@@ -69,8 +69,10 @@ def getBackgroundColorOfContour(image, contour):
     return colorReversed
 
 
-imagePath = '/Users/leo/tekleo/license-plate-recognition/sample-images/5.jpg'
+imagePath = '../sample-images/2.jpg'
 imagePil = openImage(imagePath)
+imagePil.show()
+
 image = toCvImage(imagePil)
 gray = toGrayScale(image)
 blur = toBlurWithBilateralFilter(gray)
