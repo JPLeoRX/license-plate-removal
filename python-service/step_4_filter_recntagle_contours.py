@@ -20,6 +20,7 @@ for contour in contours:
     approximation = cv2.approxPolyDP(contour, approximationAccuracy, True)
     if len(approximation) == 4:
         rectangleContours.append(contour)
+
 plateContour = rectangleContours[0]
 tempContours2 = cv2.drawContours(imageCv.copy(), [plateContour], -1, (255, 0, 0), 2)
 cv2.imshow('Detected Plate Contour', tempContours2)
